@@ -1,3 +1,4 @@
+
 module PDF
   module Core
     class Page #:nodoc:
@@ -5,10 +6,10 @@ module PDF
       def initialize(document, options = {})
         @document = document
         @margins = options[:margins] || {
-          left: 36,
-          right: 36,
-          top: 36,
-          bottom: 36
+            left: 36,
+            right: 36,
+            top: 36,
+            bottom: 36
         }
         @crops = options[:crops] || ZERO_INDENTS
         @bleeds = options[:bleeds] || ZERO_INDENTS
@@ -22,6 +23,24 @@ module PDF
         end
       end
 
+      # Prepend a content stream containing 'q',
+      # and append a content stream containing 'Q'.
+      # This ensures that prawn has a pristine graphics state
+      # before it starts adding content.
+      def wrap_graphics_state
+        dictionary.data[:Contents] = Array(dictionary.data[:Contents])
+
+        # Save graphics context
+        @content = document.ref({})
+        dictionary.data[:Contents].unshift(document.state.store[@content])
+        document.add_content 'q'
+
+        # Restore graphics context
+        @content = document.ref({})
+        dictionary.data[:Contents] << document.state.store[@content]
+        document.add_content 'Q'
+      end
+
       # As per the PDF spec, each page can have multiple content streams. This
       # will add a fresh, empty content stream this the page, mainly for use in
       # loading template files.
@@ -29,9 +48,7 @@ module PDF
       def new_content_stream
         return if in_stamp_stream?
 
-        unless dictionary.data[:Contents].is_a?(Array)
-          dictionary.data[:Contents] = [content]
-        end
+        dictionary.data[:Contents] = Array(dictionary.data[:Contents])
         @content = document.ref({})
         dictionary.data[:Contents] << document.state.store[@content]
         document.open_graphics_state
@@ -49,15 +66,15 @@ module PDF
 
         coords = PDF::Core::PageGeometry::SIZES[size] || size
         [0, 0] +
-          case layout
-          when :portrait
-            coords
-          when :landscape
-            coords.reverse
-          else
-            raise PDF::Core::Errors::InvalidPageLayout,
-              'Layout must be either :portrait or :landscape'
-          end
+            case layout
+            when :portrait
+              coords
+            when :landscape
+              coords.reverse
+            else
+              raise PDF::Core::Errors::InvalidPageLayout,
+                    'Layout must be either :portrait or :landscape'
+            end
       end
 
       if method_defined? :init_from_object
@@ -90,14 +107,14 @@ module PDF
         @content = document.ref({})
         content << 'q' << "\n"
         @dictionary = document.ref(
-          Type: :Page,
-          Parent: document.state.store.pages,
-          MediaBox: dimensions,
-          CropBox: crop_box,
-          BleedBox: bleed_box,
-          TrimBox: trim_box,
-          ArtBox: art_box,
-          Contents: content
+            Type: :Page,
+            Parent: document.state.store.pages,
+            MediaBox: dimensions,
+            CropBox: crop_box,
+            BleedBox: bleed_box,
+            TrimBox: trim_box,
+            ArtBox: art_box,
+            Contents: content
         )
 
         resources[:ProcSet] = %i[PDF Text ImageB ImageC ImageI]

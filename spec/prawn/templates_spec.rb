@@ -40,15 +40,15 @@ describe Prawn::Templates do
       filename = "#{DATADIR}/pdfs/nested_pages.pdf"
       pdf = Prawn::Document.new(template: filename, skip_page_creation: true)
       expect(pdf.state.page.dictionary.data[:Parent]).to_not eq(
-        pdf.state.store.pages
-      )
+                                                                 pdf.state.store.pages
+                                                             )
     end
 
     it 'does start with the Y cursor at the top of the document' do
       filename = "#{DATADIR}/pdfs/curves.pdf"
 
       pdf = Prawn::Document.new(template: filename)
-      expect(pdf.y.nil?).to be_falsey
+      expect(pdf.y).to_not be_nil
     end
 
     it 'respects margins set by Prawn' do
@@ -56,27 +56,27 @@ describe Prawn::Templates do
 
       pdf = Prawn::Document.new(template: filename, margin: 0)
       expect(pdf.page.margins).to eq(
-        left: 0,
-        right: 0,
-        top: 0,
-        bottom: 0
-      )
+                                      left: 0,
+                                      right: 0,
+                                      top: 0,
+                                      bottom: 0
+                                  )
 
       pdf = Prawn::Document.new(template: filename, left_margin: 0)
       expect(pdf.page.margins).to eq(
-        left: 0,
-        right: 36,
-        top: 36,
-        bottom: 36
-      )
+                                      left: 0,
+                                      right: 36,
+                                      top: 36,
+                                      bottom: 36
+                                  )
 
       pdf.start_new_page(right_margin: 0)
       expect(pdf.page.margins).to eq(
-        left: 0,
-        right: 0,
-        top: 36,
-        bottom: 36
-      )
+                                      left: 0,
+                                      right: 0,
+                                      top: 36,
+                                      bottom: 36
+                                  )
     end
 
     it 'does not add an extra restore_graphics_state operator to the end of '\
@@ -91,7 +91,7 @@ describe Prawn::Templates do
         next unless obj.is_a?(PDF::Reader::Stream)
 
         data = obj.data.tr(" \n\r", '')
-        expect(data.include?('QQ')).to be_falsey
+        expect(data).to_not include 'QQ'
       end
     end
 
@@ -109,7 +109,7 @@ describe Prawn::Templates do
       expect(pages.size).to eq 1
     end
 
-    it 'has two content streams if importing a single page template' do
+    it 'has four content streams if importing a single page template' do
       filename = "#{DATADIR}/pdfs/hexagon.pdf"
 
       pdf = Prawn::Document.new(template: filename)
@@ -118,7 +118,7 @@ describe Prawn::Templates do
 
       streams = hash.values.select { |obj| obj.is_a?(PDF::Reader::Stream) }
 
-      expect(streams.size).to eq 2
+      expect(streams.size).to eq 4
     end
 
     it 'does not die if using this PDF as a template' do
@@ -129,19 +129,28 @@ describe Prawn::Templates do
       end.to_not raise_error
     end
 
-    it 'has balance q/Q operators on all content streams' do
+    it 'wraps and balances q/Q streams' do
       filename = "#{DATADIR}/pdfs/hexagon.pdf"
 
       pdf = Prawn::Document.new(template: filename)
       output = StringIO.new(pdf.render)
       hash = PDF::Reader::ObjectHash.new(output)
 
-      streams = hash.values.select { |obj| obj.is_a?(PDF::Reader::Stream) }
+      page = hash.values.find { |obj| obj[:Type] == :Page }
 
-      streams.each do |stream|
+      page[:Contents].each_with_index do |ref, i|
+        stream_ref = hash.keys.find { |key| key.id == ref.id }
+        stream = hash[stream_ref]
         data = stream.unfiltered_data
-        expect(data.scan('q').size).to eq(1)
-        expect(data.scan('Q').size).to eq(1)
+
+        if i == 0
+          expect(data).to eq("q\n")
+        elsif i == page[:Contents].length - 2
+          expect(data).to eq("Q\n")
+        else
+          expect(data.scan('q').size).to eq(1)
+          expect(data.scan('Q').size).to eq(1)
+        end
       end
     end
 
@@ -166,7 +175,7 @@ describe Prawn::Templates do
 
       text = PDF::Inspector::Text.analyze(pdf.render)
       all_text = text.strings.join
-      expect(all_text.include?('Adding some text')).to be_truthy
+      expect(all_text).to include 'Adding some text'
     end
 
     it 'copies the PDF version from the template file' do
@@ -216,16 +225,16 @@ describe Prawn::Templates do
     it 'merges metadata info' do
       filename = "#{DATADIR}/pdfs/hexagon.pdf"
       info = {
-        Title: 'Sample METADATA',
-        Author: 'Me',
-        Subject: 'Not Working',
-        CreationDate: Time.now
+          Title: 'Sample METADATA',
+          Author: 'Me',
+          Subject: 'Not Working',
+          CreationDate: Time.now
       }
 
       pdf = Prawn::Document.new(template: filename, info: info)
       output = StringIO.new(pdf.render)
       hash = PDF::Reader::ObjectHash.new(output)
-      info.keys.each do |k|
+      info.each_key do |k|
         expect(hash[hash.trailer[:Info]].keys.include?(k)).to eq true
       end
     end
@@ -238,41 +247,41 @@ describe Prawn::Templates do
       pdf = Prawn::Document.new
       pdf.start_new_page(template: filename)
       expect(pdf.state.page.dictionary.data[:Parent]).to eq(
-        pdf.state.store.pages
-      )
+                                                             pdf.state.store.pages
+                                                         )
     end
 
     it 'sets start the Y cursor at the top of the page' do
       pdf = Prawn::Document.new
       pdf.start_new_page(template: filename)
-      expect(pdf.y.nil?).to be_falsey
+      expect(pdf.y).to_not be_nil
     end
 
     it 'respects margins set by Prawn' do
       pdf = Prawn::Document.new(margin: 0)
       pdf.start_new_page(template: filename)
       expect(pdf.page.margins).to eq(
-        left: 0,
-        right: 0,
-        top: 0,
-        bottom: 0
-      )
+                                      left: 0,
+                                      right: 0,
+                                      top: 0,
+                                      bottom: 0
+                                  )
 
       pdf = Prawn::Document.new(left_margin: 0)
       pdf.start_new_page(template: filename)
       expect(pdf.page.margins).to eq(
-        left: 0,
-        right: 36,
-        top: 36,
-        bottom: 36
-      )
+                                      left: 0,
+                                      right: 36,
+                                      top: 36,
+                                      bottom: 36
+                                  )
       pdf.start_new_page(template: filename, right_margin: 0)
       expect(pdf.page.margins).to eq(
-        left: 0,
-        right: 0,
-        top: 36,
-        bottom: 36
-      )
+                                      left: 0,
+                                      right: 0,
+                                      top: 36,
+                                      bottom: 36
+                                  )
     end
 
     it 'does not add an extra restore_graphics_state operator to the end of '\
@@ -286,7 +295,7 @@ describe Prawn::Templates do
         next unless obj.is_a?(PDF::Reader::Stream)
 
         data = obj.data.tr(" \n\r", '')
-        expect(data.include?('QQ')).to be_falsey
+        expect(data).to_not include 'QQ'
       end
     end
 
@@ -341,7 +350,7 @@ describe Prawn::Templates do
 
       text = PDF::Inspector::Text.analyze(pdf.render)
       all_text = text.strings.join
-      expect(all_text.include?('Adding some text')).to be_truthy
+      expect(all_text).to include 'Adding some text'
     end
 
     it 'correctly adds a TTF font to a template that has existing fonts' do
@@ -368,17 +377,17 @@ describe Prawn::Templates do
       repeated_pdf = Prawn::Document.new
       3.times { repeated_pdf.start_new_page(template: filename) }
       repeated_hash = PDF::Reader::ObjectHash.new(StringIO.new(
-        repeated_pdf.render
+          repeated_pdf.render
       ))
       sequential_pdf = Prawn::Document.new
       (1..3).each do |p|
         sequential_pdf.start_new_page(
-          template: filename,
-          template_page: p
+            template: filename,
+            template_page: p
         )
       end
       sequential_hash = PDF::Reader::ObjectHash.new(StringIO.new(
-        sequential_pdf.render
+          sequential_pdf.render
       ))
       expect(repeated_hash.size < sequential_hash.size).to be_truthy
     end
@@ -443,8 +452,8 @@ describe Prawn::Templates do
       filename = 'not_really_there.pdf'
 
       expect { PDF::Core::ObjectStore.new(template: filename) }.to raise_error(
-        ArgumentError
-      )
+                                                                       ArgumentError
+                                                                   )
     end
 
     it 'raises error PDF::Core::Errors::TemplateError when given a non PDF as '\
@@ -452,8 +461,8 @@ describe Prawn::Templates do
       filename = "#{DATADIR}/images/dice.png"
 
       expect { PDF::Core::ObjectStore.new(template: filename) }.to raise_error(
-        PDF::Core::Errors::TemplateError
-      )
+                                                                       PDF::Core::Errors::TemplateError
+                                                                   )
     end
 
     it 'raises error PDF::Core::Errors::TemplateError when given an encrypted '\
@@ -461,8 +470,8 @@ describe Prawn::Templates do
       filename = "#{DATADIR}/pdfs/encrypted.pdf"
 
       expect { PDF::Core::ObjectStore.new(template: filename) }.to raise_error(
-        PDF::Core::Errors::TemplateError
-      )
+                                                                       PDF::Core::Errors::TemplateError
+                                                                   )
     end
   end
 
